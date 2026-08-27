@@ -635,6 +635,11 @@ _PI_ENV_ALLOW_EXACT: frozenset[str] = frozenset(
     }
 )
 _STREAM_READ_CHUNK_SIZE = 65536
+# How long _PiRpcSession.close() waits for the Pi subprocess to exit on its own
+# after SIGTERM before falling back to SIGKILL. The interrupt-slice budget in
+# _executor_adapter must be >= this value so the slice never fires first and
+# inject a CancelledError that bypasses the SIGKILL path.
+_RPC_SESSION_CLOSE_REAP_TIMEOUT_S = 2.0
 
 # CLI flags whose values are sensitive (e.g. the full system prompt) and must
 # not be written to logs verbatim. The value following these flags is replaced
@@ -1181,7 +1186,9 @@ class _PiRpcSession:
             with contextlib.suppress(ProcessLookupError):
                 self.process.terminate()
             try:
-                await asyncio.wait_for(self.process.wait(), timeout=2.0)
+                await asyncio.wait_for(
+                    self.process.wait(), timeout=_RPC_SESSION_CLOSE_REAP_TIMEOUT_S
+                )
             except (asyncio.TimeoutError, ProcessLookupError, RuntimeError):
                 # RuntimeError can happen when the subprocess was created on a
                 # different event loop (e.g. test fixtures that call close() in

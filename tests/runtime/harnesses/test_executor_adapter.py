@@ -2460,22 +2460,19 @@ def test_translate_event_emits_subagent_tool_call() -> None:
 
 
 def test_interrupt_slice_covers_pi_rpc_session_close_reap_budget() -> None:
-    """_INTERRUPT_SLICE_S must be >= _PiRpcSession.close()'s 2.0s wait_for budget.
+    """_INTERRUPT_SLICE_S must be >= _PiRpcSession.close()'s reap wait_for budget.
 
     When the outer slice fires first it injects a CancelledError into close()'s
     inner wait_for -- not the TimeoutError its except clause catches -- so the
     SIGKILL fallback never runs and the Pi subprocess is orphaned. The fix
     raises the slice to 3.0s to give close() room to time out cleanly first.
     """
+    from omnigent.inner.pi_executor import _RPC_SESSION_CLOSE_REAP_TIMEOUT_S
     from omnigent.runtime.harnesses._executor_adapter import _INTERRUPT_SLICE_S
 
-    # _PiRpcSession.close() uses asyncio.wait_for(..., timeout=2.0) internally.
-    # The interrupt slice must be at least this large; exceeding it (3.0) means
-    # close()'s own TimeoutError -> SIGKILL path runs before the slice fires.
-    _PI_RPC_CLOSE_REAP_BUDGET_S = 2.0
-    assert _INTERRUPT_SLICE_S >= _PI_RPC_CLOSE_REAP_BUDGET_S, (
+    assert _INTERRUPT_SLICE_S >= _RPC_SESSION_CLOSE_REAP_TIMEOUT_S, (
         f"_INTERRUPT_SLICE_S={_INTERRUPT_SLICE_S} is shorter than "
-        f"_PiRpcSession.close()'s {_PI_RPC_CLOSE_REAP_BUDGET_S}s wait_for; "
+        f"_PiRpcSession.close()'s {_RPC_SESSION_CLOSE_REAP_TIMEOUT_S}s wait_for; "
         "outer slice fires first, injects CancelledError (not TimeoutError) "
         "into close(), SIGKILL fallback is skipped, Pi subprocess orphaned."
     )
