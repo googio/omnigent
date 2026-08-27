@@ -317,6 +317,30 @@ async def test_custom_title_instructions_allow_longer_output(db_uri: str) -> Non
     )
 
 
+async def test_custom_title_instructions_truncate_oversized_output(db_uri: str) -> None:
+    store = SqlAlchemyConversationStore(db_uri)
+    session_id = _seed_session(store, "Review configurable title limits")
+
+    async def generator(_request: BackgroundTitleRequest) -> str:
+        return "x" * (CUSTOM_BACKGROUND_TITLE_MAX_CHARS + 1)
+
+    coordinator = BackgroundSessionTitleCoordinator(
+        store,
+        generator,
+        additional_instructions="Use a detailed structured title.",
+    )
+    coordinator.schedule(
+        session_id=session_id,
+        prompt="review configurable title limits",
+        expected_seed_title="Review configurable title limits",
+    )
+    await coordinator.wait_for_idle()
+
+    expected = "x" * (CUSTOM_BACKGROUND_TITLE_MAX_CHARS - 1) + "…"
+    assert store.get_conversation(session_id).title == expected
+    assert len(expected) == CUSTOM_BACKGROUND_TITLE_MAX_CHARS
+
+
 async def test_manual_rename_wins_background_title_race(db_uri: str) -> None:
     store = SqlAlchemyConversationStore(db_uri)
     session_id = _seed_session(store, "Investigate authentication timeout")
