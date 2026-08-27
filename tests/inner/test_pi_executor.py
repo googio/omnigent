@@ -4647,9 +4647,7 @@ def test_run_turn_prompt_command_includes_streaming_behavior():
     async def _test():
         return [
             e
-            async for e in executor.run_turn(
-                [{"role": "user", "content": "hello"}], [], "system"
-            )
+            async for e in executor.run_turn([{"role": "user", "content": "hello"}], [], "system")
         ]
 
     events = _run(_test())
