@@ -2437,7 +2437,15 @@ class PiExecutor(Executor):
         else:
             message = prompt
         cmd_id = f"turn_{id(messages)}"
-        command: CodexEvent = {"type": "prompt", "message": message, "id": cmd_id}
+        # streamingBehavior='followUp' lets Pi queue the prompt when its isStreaming
+        # flag is still set after a race with a not-yet-confirmed-dead subprocess,
+        # rather than surfacing the raw 'Agent is already processing' protocol error.
+        command: CodexEvent = {
+            "type": "prompt",
+            "message": message,
+            "id": cmd_id,
+            "streamingBehavior": "followUp",
+        }
         if images:
             command["images"] = images
         try:
